@@ -20,7 +20,7 @@ class DAE:
         self.Loop=5
 
         self.directory_name='DAE/data/'
-        self.original=self.directory_name+'original/'
+        self.dataBase='data_base/'
         self.datasetDir=self.directory_name+'dataset/'
         self.testsetDir=self.directory_name+'testset/'
         self.modelDir='DAE/model/'
@@ -45,54 +45,33 @@ class DAE:
     
     def makeDataset(self):
         print("makedataset start")
-        NGImg=cv2.imread(self.directory_name+"NG.png",1)
-        files = os.listdir(self.original)
+        files = os.listdir(self.dataBase+"any_image/")
+        maskFiles=os.listdir(self.dataBase+"mask/")
         count=0
         for f in files:
-            
-            img=cv2.imread(self.original+f,1)
-            if np.sum(cv2.absdiff(img, NGImg) ) >50:
+            print(count)
+            img=cv2.imread(self.dataBase+"any_image/"+f,1)
+            noisedImg=img.copy()
 
-                print(count)
-                noisedImg=img.copy()
+            rand=random.randint(0,len(maskFiles)-1)
+            mask=cv2.imread(self.dataBase+"mask/"+maskFiles[rand],1)
 
-                mask=np.zeros((img.shape[0]*2,img.shape[0]*2),dtype=np.uint8)
-                thick=random.randint(1,10)
-                interval=random.randint(20,100)
+            for i in range(img.shape[0]):
+                for j in range(img.shape[1]):
+                    if mask[i,j,0]==255 and mask[i,j,1]==255 and mask[i,j,2]==255:
+                        noisedImg[i,j]=[0,0,0]
+                        
+            if count%5==0:
+                cv2.imwrite(self.testsetDir+'input/'+str(count)+".png",noisedImg)
+                cv2.imwrite(self.testsetDir+'mask/'+str(count)+".png",mask)
+                cv2.imwrite(self.testsetDir+'output/'+str(count)+".png",img)
 
-                for i in range(mask.shape[0]):
-                    if mask.shape[0]-thick>i and i%interval==0:
-                        mask[i:i+thick,:]=255
-                for i in range(mask.shape[1]):
-                    if mask.shape[1]-thick>i and i%interval==0:
-                        mask[:,i:i+thick]=255
+            else:
+                cv2.imwrite(self.datasetDir+'input/'+str(count)+".png",noisedImg)
+                cv2.imwrite(self.datasetDir+'mask/'+str(count)+".png",mask)
+                cv2.imwrite(self.datasetDir+'output/'+str(count)+".png",img)
 
-                angle=random.uniform(0.0,360.0)
-
-                rotation_matrix = cv2.getRotationMatrix2D((int(mask.shape[0]/2),int(mask.shape[1]/2)), angle, 1.0)
-                mask = cv2.warpAffine(mask, rotation_matrix, (int(mask.shape[0]),int(mask.shape[1])))
-
-                noise=np.zeros((img.shape[0],img.shape[0]),dtype=np.uint8)
-
-                for i in range(img.shape[0]):
-                    for j in range(img.shape[1]):
-                        if mask[int(mask.shape[0]/4)+i,int(mask.shape[1]/4)+j]==255:
-                            noisedImg[i,j]=[0,0,0]
-                            noise[i,j]=255
-                mask=noise.copy()
-
-
-                if count%10==0:
-                    cv2.imwrite(self.testsetDir+'input/'+str(count)+".png",noisedImg)
-                    cv2.imwrite(self.testsetDir+'mask/'+str(count)+".png",mask)
-                    cv2.imwrite(self.testsetDir+'output/'+str(count)+".png",img)
-
-                else:
-                    cv2.imwrite(self.datasetDir+'input/'+str(count)+".png",noisedImg)
-                    cv2.imwrite(self.datasetDir+'mask/'+str(count)+".png",mask)
-                    cv2.imwrite(self.datasetDir+'output/'+str(count)+".png",img)
-
-                count+=1
+            count+=1
 
 
     def _readData(self,path,name):
@@ -488,36 +467,6 @@ class DAE:
 
             if step == TIMES:
                 break
-
-    def test(self):
-        files = os.listdir(self.testsetDir+'input/')
-        loss=0.0
-        for f in files:
-            inputData,outputData=self._readData(self.testsetDir,f)
-            input_image=np.array(inputData)
-            output_image=np.array(outputData)
-            g_sample,g_loss=self.sess.run([self.g_sample,self.g_loss],{self.gx:input_image,self.gy_:output_image,self.keep_prob:1.0})
-            loss+=g_loss
-            
-            g_sample=g_sample[0]
-            cv2.imwrite('DAE/all_GAN/'+f,g_sample*255)
-            cv2.imwrite(self.testsetDir+'all/'+f,g_sample*255)
-            mask=cv2.imread(self.testsetDir+'mask/'+f,0)
-            mask=mask<128
-            g_sample[mask]=output_image[0][mask]
-            for i in range(g_sample.shape[0]):
-                for j in range(g_sample.shape[1]):
-                    for k in range(3):
-                        if g_sample[i,j,k]>1.0:
-                            g_sample[i,j,k]=1.0
-                        if g_sample[i,j,k]<0.0:
-                            g_sample[i,j,k]=0.0
-            cv2.imwrite('DAE/result/'+f,g_sample*255)
-        loss/=len(files)
-        fp=open("DAE/result.txt","w")
-        fp.write(str(loss)+"\n")
-        fp.close()
-        print(loss)
 
 #3 channels 0.0~1.0 image and 1 channel mask
     def do(self,sample):
