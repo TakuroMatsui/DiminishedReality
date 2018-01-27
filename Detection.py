@@ -26,7 +26,6 @@ class Detection:
         self.testsetDir=self.directory_name+'testset/'
         self.modelDir='Detection/model/'
         self.modelname='Detection/model/Detection.ckpt'
-        self.logName='Detection/log/Detection.csv'
 
         self.graph=tf.Graph()
         self._buidModel()
@@ -398,10 +397,6 @@ class Detection:
             if step % 1 ==0:
                 _,d_loss,d_loss_real,d_loss_fake=self.sess.run([self.d_optimizer,self.d_loss,self.d_loss_real,self.d_loss_fake],{self.gx:input_image,self.gy_:output_image,self.learnRate:learnRate,self.keep_prob:keep_prob})
 
-            f=open(self.logName,"a")
-            f.write(str(g_loss)+","+str(d_loss)+","+str(g_loss_fake)+","+str(d_loss_fake)+"\n")
-            f.close()
-
             if step>0 and step % 100 ==0:
                 fake=self.sess.run(self.g_sample,{self.gx:input_image,self.keep_prob:1.0})
                 self._showImages(input_image[0:5],fake[0:5])
@@ -419,7 +414,7 @@ class Detection:
                 print(step)
                 loss=0.0
                 testStartTime=time.time()
-                for i in range(0,len(filesTest)-self.BATCH,self.BATCH):
+                for i in range(0,len(filesTest)-self.BATCH+1,self.BATCH):
                     for j in range(self.BATCH):
                         inputData,outputData=self._readData(self.testsetDir,filesTest[i+j])
                         if j==0:
@@ -470,7 +465,8 @@ class Detection:
         return self.sess.run(self.g_sample,{self.gx:[sample],self.keep_prob:1.0})[0]
 
     def close(self):
-        self.sess.close()
+        with self.sess.as_default():
+            self.sess.close()
 
 if __name__=="__main__":
     fd=Detection(1)
@@ -479,5 +475,5 @@ if __name__=="__main__":
 
     fd=Detection(5)
     # fd.loadModel()
-    fd.train(0.0001,0.5,-1) 
+    fd.train(0.0001,0.5,20000) 
     fd.close()
