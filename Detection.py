@@ -21,7 +21,7 @@ class Detection:
         self.Loop=5
 
         self.directory_name='Detection/data/'
-        self.original=self.directory_name+'original/'
+        self.dataBase='data_base/'
         self.datasetDir=self.directory_name+'dataset/'
         self.testsetDir=self.directory_name+'testset/'
         self.modelDir='Detection/model/'
@@ -46,35 +46,19 @@ class Detection:
     
     def makeDataset(self):
         print("makedataset start")
-        files = os.listdir(self.original+"input/")
+        files = os.listdir(self.dataBase+"image/")
         count=0
         for f in files:
             print(count)
-            img=cv2.imread(self.original+'input/'+f,1)
-            img=cv2.resize(img,(self.size,self.size))
-            mask=cv2.imread(self.original+'output/'+f,1)
-            mask=cv2.resize(mask,(self.size,self.size))
+            img=cv2.imread(self.dataBase+'image/'+f,1)
+            mask=cv2.imread(self.dataBase+'mask/'+f,1)
 
-            for i in range(mask.shape[0]):
-                for j in range(mask.shape[1]):
-                    if mask[i,j][0]<=30 and mask[i,j][1]>=220 and mask[i,j][2]<=30:
-                        mask[i,j]=[255,255,255]
-                    else :
-                        mask[i,j]=[0,0,0]
-            
-            mask=cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-
-            if count%10==0:
+            if count%5==0:
                 cv2.imwrite(self.testsetDir+'input/'+str(count)+".png",img)
                 cv2.imwrite(self.testsetDir+'output/'+str(count)+".png",mask)
-
-                img=np.reshape(img,[-1,img.shape[0]*img.shape[1]*img.shape[2]])[0]
-                mask=np.reshape(mask,[-1,mask.shape[0]*mask.shape[1]])[0]
-
             else:
                 cv2.imwrite(self.datasetDir+'input/'+str(count)+".png",img)
                 cv2.imwrite(self.datasetDir+'output/'+str(count)+".png",mask)
-
             count+=1
 
             
@@ -481,36 +465,6 @@ class Detection:
             if step == TIMES:
                 break
 
-    def test(self):
-        files = os.listdir(self.testsetDir+'input/')
-        loss=0.0
-        for f in files:
-            inputData,outputData=self._readData(self.testsetDir,f)
-            input_image=np.array(inputData)
-            output_image=np.array(outputData)
-            g_sample,g_loss=self.sess.run([self.g_sample,self.g_loss],{self.gx:input_image,self.gy_:output_image,self.keep_prob:1.0})
-            loss+=g_loss
-            
-            g_sample=g_sample[0]
-            cv2.imwrite('Detection/all_GAN/'+f,g_sample*255)
-            cv2.imwrite(self.testsetDir+'all/'+f,g_sample*255)
-            mask=cv2.imread(self.testsetDir+'mask/'+f,0)
-            mask=mask<128
-            g_sample[mask]=output_image[0][mask]
-            for i in range(g_sample.shape[0]):
-                for j in range(g_sample.shape[1]):
-                    for k in range(3):
-                        if g_sample[i,j,k]>1.0:
-                            g_sample[i,j,k]=1.0
-                        if g_sample[i,j,k]<0.0:
-                            g_sample[i,j,k]=0.0
-            cv2.imwrite('Detection/result/'+f,g_sample*255)
-        loss/=len(files)
-        fp=open("Detection/result.txt","w")
-        fp.write(str(loss)+"\n")
-        fp.close()
-        print(loss)
-
 #3 channels 0.0~1.0 image
     def do(self,sample):
         return self.sess.run(self.g_sample,{self.gx:[sample],self.keep_prob:1.0})[0]
@@ -519,9 +473,9 @@ class Detection:
         self.sess.close()
 
 if __name__=="__main__":
-    # fd=Detection(1)
-    # fd.makeDataset()
-    # fd.close()
+    fd=Detection(1)
+    fd.makeDataset()
+    fd.close()
 
     fd=Detection(5)
     # fd.loadModel()
