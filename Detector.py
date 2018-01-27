@@ -1,5 +1,5 @@
 
-#This is Detection Network
+#This is Detector Network
 
 import numpy as np
 import cv2
@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import os
 import time
 
-class Detection:
+class Detector:
     def __init__(self,batchsize=1):
         self.BATCH=batchsize
         self.size=256
@@ -20,12 +20,12 @@ class Detection:
         self.Filter=5
         self.Loop=5
 
-        self.directory_name='Detection/data/'
+        self.directory_name='Detector/data/'
         self.dataBase='data_base/'
         self.datasetDir=self.directory_name+'dataset/'
         self.testsetDir=self.directory_name+'testset/'
-        self.modelDir='Detection/model/'
-        self.modelname='Detection/model/Detection.ckpt'
+        self.modelDir='Detector/model/'
+        self.modelname='Detector/model/Detector.ckpt'
 
         self.graph=tf.Graph()
         self._buidModel()
@@ -451,7 +451,7 @@ class Detection:
                     notUpdate+=1
                     print("NOT Updated: "+str(notUpdate))
 
-            if notUpdate==10:
+            if notUpdate==5:
                 learnRate=learnRate*0.1
                 notUpdate=0
             
@@ -469,11 +469,11 @@ class Detection:
             self.sess.close()
 
 if __name__=="__main__":
-    fd=Detection(1)
+    fd=Detector(1)
     fd.makeDataset()
     fd.close()
 
-    fd=Detection(5)
+    fd=Detector(5)
     # fd.loadModel()
     fd.train(0.0001,0.5,20000) 
     fd.close()
