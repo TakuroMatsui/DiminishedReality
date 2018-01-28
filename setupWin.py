@@ -8,6 +8,10 @@ os.system("mkdir DAE\\model")
 os.system("mkdir DAE\\data\\dataset\\input DAE\\data\\dataset\\output DAE\\data\\dataset\\mask")
 os.system("mkdir DAE\\data\\testset\\input DAE\\data\\testset\\output DAE\\data\\testset\\mask")
 
-os.system("mkdir Detection\\model")
-os.system("mkdir Detection\\data\\dataset\\input Detection\\data\\dataset\\output")
-os.system("mkdir Detection\\data\\testset\\input Detection\\data\\testset\\output")
+os.system("mkdir Detector\\model")
+os.system("mkdir Detector\\data\\dataset\\input Detector\\data\\dataset\\output")
+os.system("mkdir Detector\\data\\testset\\input Detector\\data\\testset\\output")
+
+os.system("mkdir inpainting\\target")
+os.system("mkdir inpainting\\result")
+os.system("mkdir inpainting\\mask")
