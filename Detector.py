@@ -475,5 +475,5 @@ if __name__=="__main__":
 
     fd=Detector(5)
     # fd.loadModel()
-    fd.train(0.0001,0.5,20000) 
+    fd.train(0.0001,0.5,10000) 
     fd.close()

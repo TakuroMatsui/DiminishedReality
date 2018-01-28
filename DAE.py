@@ -60,7 +60,7 @@ class DAE:
                     if mask[i,j,0]==255 and mask[i,j,1]==255 and mask[i,j,2]==255:
                         noisedImg[i,j]=[0,0,0]
                         
-            if count%5==0:
+            if count%10==0:
                 cv2.imwrite(self.testsetDir+'input/'+str(count)+".png",noisedImg)
                 cv2.imwrite(self.testsetDir+'mask/'+str(count)+".png",mask)
                 cv2.imwrite(self.testsetDir+'output/'+str(count)+".png",img)
@@ -479,5 +479,5 @@ if __name__=="__main__":
 
     gan=DAE(5)
     # gan.loadModel()
-    gan.train(0.0001,0.5,100000) 
+    gan.train(0.0001,0.5,50000) 
     gan.close()
