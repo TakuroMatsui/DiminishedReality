@@ -29,7 +29,7 @@ class Detector:
 
         config = tf.ConfigProto(
             gpu_options=tf.GPUOptions(
-                visible_device_list="0,1", # specify GPU number
+                visible_device_list="0", # specify GPU number
                 allow_growth=True
             )
         )
