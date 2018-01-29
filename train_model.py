@@ -3,6 +3,7 @@ import DAE
 import Detector
 
 dataSetup=align_image.Align()
+dataSetup.allDo()
 
 det=Detector.Detector(1)
 det.makeDataset()

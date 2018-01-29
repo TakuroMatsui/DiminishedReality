@@ -148,8 +148,6 @@ class DAE:
                 h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-norm-{0}".format(i))
                 h=self._leakyReLU(h)
 
-            h1=h
-
             w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv1-out")
             h=self._conv2d(h,w,2)+b
             h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-out-norm")
@@ -168,8 +166,6 @@ class DAE:
                 h=self._conv2d(h,w,1)+b
                 h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-norm-{0}".format(i))
                 h=self._leakyReLU(h)
-
-            h2=h
 
             w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-out")
             h=self._conv2d(h,w,2)+b
@@ -190,8 +186,6 @@ class DAE:
                 h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-norm-{0}".format(i))
                 h=self._leakyReLU(h)
 
-            h3=h
-
             w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-out")
             h=self._conv2d(h,w,2)+b
             h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-out-norm")
@@ -204,12 +198,6 @@ class DAE:
             w,b=self._deconv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv1-in")
             h=self._deconv2d(h,w,[self.BATCH,self.size/(2**2),self.size/(2**2),self.Layer],2)+b
             h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv1-in-norm")
-            h=self._leakyReLU(h)
-
-            h=tf.concat([h,h3],3)
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer*2,self.Layer],"U-net1")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="U-net1-norm")
             h=self._leakyReLU(h)
 
             for i in range(self.Loop):
@@ -231,12 +219,6 @@ class DAE:
             h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv2-in-norm")
             h=self._leakyReLU(h)
 
-            h=tf.concat([h,h2],3)
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer*2,self.Layer],"U-net2")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="U-net2-norm")
-            h=self._leakyReLU(h)
-
             for i in range(self.Loop):
                 w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv2-{0}".format(i))
                 h=self._conv2d(h,w,1)+b
@@ -254,12 +236,6 @@ class DAE:
             w,b=self._deconv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv3-in")
             h=self._deconv2d(h,w,[self.BATCH,self.size/(2**0),self.size/(2**0),self.Layer],2)+b
             h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv3-in-norm")
-            h=self._leakyReLU(h)
-
-            h=tf.concat([h,h1],3)
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer*2,self.Layer],"U-net3")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="U-net3-norm")
             h=self._leakyReLU(h)
 
             for i in range(self.Loop):

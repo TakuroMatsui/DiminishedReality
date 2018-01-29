@@ -42,8 +42,6 @@ class Align:
 		print("completed")
 
 if __name__=="__main__":
-	print("start")
 
 	al=Align()
-	al.allDO()
-	print("completed")
+	al.allDo()
