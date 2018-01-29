@@ -449,11 +449,11 @@ class DAE:
             self.sess.close()
 
 if __name__=="__main__":
-    gan=DAE(1)
-    gan.makeDataset()
-    gan.close()
+    dae=DAE(1)
+    dae.makeDataset()
+    dae.close()
 
-    gan=DAE(5)
-    # gan.loadModel()
-    gan.train(0.0001,0.5,50000) 
-    gan.close()
+    dae=DAE(5)
+    # dae.loadModel()
+    dae.train(0.0001,0.5,50000) 
+    dae.close()

@@ -410,7 +410,7 @@ class Detector:
                 self.saver.save(self.sess, self.modelname)
 
 
-            if step>0 and step % 1000 ==0:
+            if step>0 and step % 500 ==0:
                 print(step)
                 loss=0.0
                 testStartTime=time.time()
@@ -469,11 +469,11 @@ class Detector:
             self.sess.close()
 
 if __name__=="__main__":
-    fd=Detector(1)
-    fd.makeDataset()
-    fd.close()
+    det=Detector(1)
+    det.makeDataset()
+    det.close()
 
-    fd=Detector(5)
-    # fd.loadModel()
-    fd.train(0.0001,0.5,10000) 
-    fd.close()
+    det=Detector(5)
+    # det.loadModel()
+    det.train(0.0001,0.5,10000) 
+    det.close()
