@@ -27,9 +27,16 @@ class Detector:
         self.modelDir='Detector/model/'
         self.modelname='Detector/model/Detector.ckpt'
 
+        config = tf.ConfigProto(
+            gpu_options=tf.GPUOptions(
+                visible_device_list="0", # specify GPU number
+                allow_growth=True
+            )
+        )
+
         self.graph=tf.Graph()
         self._buidModel()
-        self.sess=tf.InteractiveSession(graph=self.graph)
+        self.sess=tf.InteractiveSession(graph=self.graph,config=config)
         self.saver = tf.train.Saver()
         self.testScore=100000.0
 
@@ -272,79 +279,7 @@ class Detector:
             y=(tf.nn.tanh(h)+1.0)/2.0
 
             return y
-            
-    def _buildDiscriminator(self,x,reuse=False):
-        with tf.variable_scope("Discriminator") as scope:
-            if reuse:
-                scope.reuse_variables()
-                isTraining=False
-            else:
-                isTraining=True
-
-            h=x
-
-            #layer 1
-            w,b=self._conv_variable([self.Filter,self.Filter,1,self.Layer],"conv1-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-in-norm")
-            h=self._leakyReLU(h)
-
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv1-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-norm-{0}".format(i))
-                h=self._leakyReLU(h)
-
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv1-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-out-norm")
-            h=self._leakyReLU(h)
-
-            #layer 2
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-in-norm")
-            h=self._leakyReLU(h)
-
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-norm-{0}".format(i))
-                h=self._leakyReLU(h)
-
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-out-norm")
-            h=self._leakyReLU(h)
-
-            #layer 3
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-in-norm")
-            h=self._leakyReLU(h)
-
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-norm-{0}".format(i))
-                h=self._leakyReLU(h)
-
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-out-norm")
-            h=self._leakyReLU(h)
-
-            #fc1
-            h=tf.reshape(h,[-1,int(self.size/(2**3)*self.size/(2**3))*self.Layer])
-            self.fc_w1,self.fc_b1=self._fc_variable([self.size/(2**3)*self.size/(2**3)*self.Layer,1],"fc1")
-            h=tf.matmul(h,self.fc_w1)+self.fc_b1
-
-            y=(tf.nn.tanh(h)+1.0)/2.0
-
-            return y
-            
-
-
+ 
     def _buidModel(self):
         with self.graph.as_default():
             e=0.00000001
@@ -356,20 +291,11 @@ class Detector:
             self.gy=self._buildGenerator(self.gx,self.keep_prob,False)
             self.g_sample=self._buildGenerator(self.gx,self.keep_prob,True)
 
-            self.dy_real=self._buildDiscriminator(self.gy_,False)
-            self.dy_fake=self._buildDiscriminator(self.gy,True)
-
-            self.d_loss_real=tf.reduce_mean(1.0*-tf.log(self.dy_real+e))
-            self.d_loss_fake=tf.reduce_mean(1.0*-tf.log(1.0-self.dy_fake+e))
-            self.d_loss=self.d_loss_real+self.d_loss_fake
-
-            self.g_loss_fake=tf.reduce_mean(1.0*-tf.log(self.dy_fake+e))*0.001
             self.g_loss_pix=tf.reduce_mean(-(self.gy_*tf.log(self.gy+e)+(1.0-self.gy_)*tf.log(1.0-self.gy+e)))
-            self.g_loss=self.g_loss_pix+self.g_loss_fake
+            self.g_loss=self.g_loss_pix
 
             self.g_optimizer = tf.train.AdamOptimizer(self.learnRate).minimize(self.g_loss,var_list=[x for x in tf.trainable_variables() if "Generator" in x.name])
-            self.d_optimizer = tf.train.AdamOptimizer(self.learnRate/4.0).minimize(self.d_loss,var_list=[x for x in tf.trainable_variables() if "Discriminator" in x.name])
-            
+
     def train(self,learnRate,keep_prob,TIMES):
         print("train start")
         notUpdate=0
@@ -393,24 +319,17 @@ class Detector:
             
 
             if step % 1 ==0:
-                _,g_loss,g_loss_pix,g_loss_fake=self.sess.run([self.g_optimizer,self.g_loss,self.g_loss_pix,self.g_loss_fake],{self.gx:input_image,self.gy_:output_image,self.learnRate:learnRate,self.keep_prob:keep_prob})
-            if step % 1 ==0:
-                _,d_loss,d_loss_real,d_loss_fake=self.sess.run([self.d_optimizer,self.d_loss,self.d_loss_real,self.d_loss_fake],{self.gx:input_image,self.gy_:output_image,self.learnRate:learnRate,self.keep_prob:keep_prob})
+                _,g_loss=self.sess.run([self.g_optimizer,self.g_loss],{self.gx:input_image,self.gy_:output_image,self.learnRate:learnRate,self.keep_prob:keep_prob})
 
             if step>0 and step % 100 ==0:
                 fake=self.sess.run(self.g_sample,{self.gx:input_image,self.keep_prob:1.0})
                 self._showImages(input_image[0:5],fake[0:5])
                 print("step : ",step)
                 print("g_loss : ",g_loss)
-                print("d_loss : ",d_loss)
-                print("d_loss_real : ",d_loss_real)
-                print("d_loss_fake : ",d_loss_fake)
-                print("g_loss_pix : ",g_loss_pix)
-                print("g_loss_fake : ",g_loss_fake)
                 self.saver.save(self.sess, self.modelname)
 
 
-            if step>0 and step % 1000 ==0:
+            if step>0 and step % 500 ==0:
                 print(step)
                 loss=0.0
                 testStartTime=time.time()
@@ -469,11 +388,11 @@ class Detector:
             self.sess.close()
 
 if __name__=="__main__":
-    fd=Detector(1)
-    fd.makeDataset()
-    fd.close()
+    det=Detector(1)
+    det.makeDataset()
+    det.close()
 
-    fd=Detector(5)
-    # fd.loadModel()
-    fd.train(0.0001,0.5,10000) 
-    fd.close()
+    det=Detector(5)
+    # det.loadModel()
+    det.train(0.0001,0.5,10000) 
+    det.close()
