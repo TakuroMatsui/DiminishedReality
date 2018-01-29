@@ -26,9 +26,16 @@ class DAE:
         self.modelDir='DAE/model/'
         self.modelname='DAE/model/DAE.ckpt'
 
+        config = tf.ConfigProto(
+            gpu_options=tf.GPUOptions(
+                visible_device_list="0,1", # specify GPU number
+                allow_growth=True
+            )
+        )
+
         self.graph=tf.Graph()
         self._buidModel()
-        self.sess=tf.InteractiveSession(graph=self.graph)
+        self.sess=tf.InteractiveSession(graph=self.graph,config=config)
         self.saver = tf.train.Saver()
         self.testScore=100000.0
 
