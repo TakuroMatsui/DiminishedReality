@@ -5,18 +5,20 @@ import cv2
 import tensorflow as tf
 import sys
 import random
-import matplotlib.pyplot as plt
 import os
 import time
+import configparser
 
 class DAE:
     def __init__(self,batchsize=1):
+        inifile = configparser.SafeConfigParser()
+        inifile.read("settings.ini")
         self.BATCH=batchsize
-        self.size=256
+        self.size=int(inifile.get("settings","size"))
         self.dim=3
 
         self.Layer=32
-        self.Filter=5
+        self.Filter=3
         self.Loop=5
 
         self.directory_name='DAE/data/'
@@ -55,29 +57,33 @@ class DAE:
         maskFiles=os.listdir(self.dataBase+"mask/")
         count=0
         for f in files:
-            print(count)
-            img=cv2.imread(self.dataBase+"any_image/"+f,1)
-            noisedImg=img.copy()
+            if f.split(".")[-1]=="png":
+                print(count)
+                img=cv2.imread(self.dataBase+"any_image/"+f,1)
+                noisedImg=img.copy()
 
-            rand=random.randint(0,len(maskFiles)-1)
-            mask=cv2.imread(self.dataBase+"mask/"+maskFiles[rand],1)
+                while 1:
+                    rand=random.randint(0,len(maskFiles)-1)
+                    if maskFiles[rand].split(".")[-1]=="png":
+                        mask=cv2.imread(self.dataBase+"mask/"+maskFiles[rand],1)
+                        break
 
-            for i in range(img.shape[0]):
-                for j in range(img.shape[1]):
-                    if mask[i,j,0]==255 and mask[i,j,1]==255 and mask[i,j,2]==255:
-                        noisedImg[i,j]=[0,0,0]
-                        
-            if count%10==0:
-                cv2.imwrite(self.testsetDir+'input/'+str(count)+".png",noisedImg)
-                cv2.imwrite(self.testsetDir+'mask/'+str(count)+".png",mask)
-                cv2.imwrite(self.testsetDir+'output/'+str(count)+".png",img)
+                for i in range(img.shape[0]):
+                    for j in range(img.shape[1]):
+                        if mask[i,j,0]==255 and mask[i,j,1]==255 and mask[i,j,2]==255:
+                            noisedImg[i,j]=[0,0,0]
+                            
+                if count%10==0:
+                    cv2.imwrite(self.testsetDir+'input/'+str(count)+".png",noisedImg)
+                    cv2.imwrite(self.testsetDir+'mask/'+str(count)+".png",mask)
+                    cv2.imwrite(self.testsetDir+'output/'+str(count)+".png",img)
 
-            else:
-                cv2.imwrite(self.datasetDir+'input/'+str(count)+".png",noisedImg)
-                cv2.imwrite(self.datasetDir+'mask/'+str(count)+".png",mask)
-                cv2.imwrite(self.datasetDir+'output/'+str(count)+".png",img)
+                else:
+                    cv2.imwrite(self.datasetDir+'input/'+str(count)+".png",noisedImg)
+                    cv2.imwrite(self.datasetDir+'mask/'+str(count)+".png",mask)
+                    cv2.imwrite(self.datasetDir+'output/'+str(count)+".png",img)
 
-            count+=1
+                count+=1
 
 
     def _readData(self,path,name):
@@ -92,11 +98,12 @@ class DAE:
 
     def _showImages(self,real,fake):
         items=len(real)
+        if items>4:
+            items=4
         images=np.zeros([self.size*items,self.size*2,3])
         for i in range(items):
             images[self.size*i:self.size*(i+1),0:self.size,:]=real[i,:,:,0:3]
             images[self.size*i:self.size*(i+1),self.size:self.size*2,:]=fake[i,:,:,0:3]
-        images=cv2.resize(images,(256,128*5))
         cv2.imshow("real : fake",images)
         cv2.waitKey(1)
 
@@ -254,7 +261,7 @@ class DAE:
             w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,3],"deconv3-out")
             h=self._conv2d(h,w,1)+b
 
-            y=(tf.nn.tanh(h)+1.0)/2.0
+            y=h
 
             return y
             
@@ -341,6 +348,8 @@ class DAE:
 
             self.gy=self._buildGenerator(self.gx,self.keep_prob,False)
             self.g_sample=self._buildGenerator(self.gx,self.keep_prob,True)
+            self.g_sample=tf.maximum(0.0,self.g_sample)
+            self.g_sample=tf.minimum(1.0,self.g_sample)
 
             self.dy_real=self._buildDiscriminator(self.gy_,False)
             self.dy_fake=self._buildDiscriminator(self.gy,True)
@@ -349,8 +358,8 @@ class DAE:
             self.d_loss_fake=tf.reduce_mean(1.0*-tf.log(1.0-self.dy_fake+e))
             self.d_loss=self.d_loss_real+self.d_loss_fake
 
-            self.g_loss_fake=tf.reduce_mean(1.0*-tf.log(self.dy_fake+e))*0.001
-            self.g_loss_pix=tf.reduce_mean(-(self.gy_*tf.log(self.gy+e)+(1.0-self.gy_)*tf.log(1.0-self.gy+e)))
+            self.g_loss_fake=tf.reduce_mean(1.0*-tf.log(self.dy_fake+e))*0.0001
+            self.g_loss_pix=tf.reduce_mean(tf.abs(self.gy-self.gy_))
             self.g_loss=self.g_loss_pix+self.g_loss_fake
 
             self.g_optimizer = tf.train.AdamOptimizer(self.learnRate).minimize(self.g_loss,var_list=[x for x in tf.trainable_variables() if "Generator" in x.name])
@@ -363,13 +372,15 @@ class DAE:
 
         files = os.listdir(self.datasetDir+'input/')
         filesTest=os.listdir(self.testsetDir+'input/')
-        testNum=len(filesTest)-self.BATCH-len(filesTest)%self.BATCH
 
         while True:
             step+=1
             for j in range(self.BATCH):
-                rand=random.randint(0,len(files)-1)
-                inputData,outputData=self._readData(self.datasetDir,files[rand])
+                while 1:
+                    rand=random.randint(0,len(files)-1)
+                    if files[rand].split(".")[-1]=="png":
+                        inputData,outputData=self._readData(self.datasetDir,files[rand])
+                        break
                 if j==0:
                     input_image=np.array(inputData)
                     output_image=np.array(outputData)
@@ -377,16 +388,11 @@ class DAE:
                     input_image=np.append(input_image,inputData,0)
                     output_image=np.append(output_image,outputData,0)
             
-
-            if step % 1 ==0:
-                _,g_loss,g_loss_pix,g_loss_fake=self.sess.run([self.g_optimizer,self.g_loss,self.g_loss_pix,self.g_loss_fake],{self.gx:input_image,self.gy_:output_image,self.learnRate:learnRate,self.keep_prob:keep_prob})
-            if step % 1 ==0:
-                _,d_loss,d_loss_real,d_loss_fake=self.sess.run([self.d_optimizer,self.d_loss,self.d_loss_real,self.d_loss_fake],{self.gx:input_image,self.gy_:output_image,self.learnRate:learnRate,self.keep_prob:keep_prob})
-
+            _,g_loss,g_loss_pix,g_loss_fake,_,d_loss,d_loss_real,d_loss_fake=self.sess.run([self.g_optimizer,self.g_loss,self.g_loss_pix,self.g_loss_fake,self.d_optimizer,self.d_loss,self.d_loss_real,self.d_loss_fake],{self.gx:input_image,self.gy_:output_image,self.learnRate:learnRate,self.keep_prob:keep_prob})
 
             if step>0 and step % 100 ==0:
                 fake=self.sess.run(self.g_sample,{self.gx:input_image,self.keep_prob:1.0})
-                self._showImages(input_image[0:5],fake[0:5])
+                self._showImages(input_image,fake)
                 print("step : ",step)
                 print("g_loss : ",g_loss)
                 print("d_loss : ",d_loss)
@@ -399,20 +405,27 @@ class DAE:
             if step>0 and step % 1000 ==0:
                 print(step)
                 loss=0.0
+                testCount=0.0
+                j=0
                 testStartTime=time.time()
-                for i in range(0,len(filesTest)-self.BATCH+1,self.BATCH):
-                    for j in range(self.BATCH):
-                        inputData,outputData=self._readData(self.testsetDir,filesTest[i+j])
+                for i in range(0,len(filesTest)):
+                    if filesTest[i].split(".")[-1]=="png":
+                        inputData,outputData=self._readData(self.testsetDir,filesTest[i])
                         if j==0:
                             input_image=np.array(inputData)
                             output_image=np.array(outputData)
+                            j+=1
                         else:
                             input_image=np.append(input_image,inputData,0)
                             output_image=np.append(output_image,outputData,0)
-                    g_loss_pix=self.sess.run(self.g_loss_pix,{self.gx:input_image,self.gy_:output_image,self.keep_prob:1.0})
-                    loss+=g_loss_pix/testNum
+                            j+=1
+                        if j==self.BATCH:
+                            g_loss_pix=self.sess.run(self.g_loss_pix,{self.gx:input_image,self.gy_:output_image,self.keep_prob:1.0})
+                            loss+=g_loss_pix
+                            testCount=testCount+float(self.BATCH)
+                            j=0
                     cv2.waitKey(1)
-                loss*=self.BATCH
+                loss*=self.BATCH/testCount
                 print("learnRate  :"+str(learnRate))
                 print("before     : "+str(self.testScore))
                 print("current    : "+str(loss))
