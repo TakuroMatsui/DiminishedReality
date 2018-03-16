@@ -260,6 +260,10 @@ class DAE:
 
             w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,3],"deconv3-out")
             h=self._conv2d(h,w,1)+b
+            h=self._leakyReLU(h)
+
+            w,b=self._conv_variable([1,1,3,3],"final")
+            h=self._conv2d(h,w,1)+b
 
             y=h
 
