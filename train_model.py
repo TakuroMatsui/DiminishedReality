@@ -1,22 +1,6 @@
-import align_image
 import DAE
-import Detector
 
-dataSetup=align_image.Align()
-dataSetup.allDo()
-
-det=Detector.Detector(1)
-det.makeDataset()
-det.close()
-
-dae=DAE.DAE(1)
-dae.makeDataset()
-dae.close()
-
-det=Detector.Detector(5)
-det.train(0.0001,0.5,10000) 
-det.close()
-
-dae=DAE.DAE(5)
-dae.train(0.0001,0.5,100000) 
+dae=DAE.DAE(10)
+# dae.loadModel()
+dae.train(0.001,0.5,100000)
 dae.close()
