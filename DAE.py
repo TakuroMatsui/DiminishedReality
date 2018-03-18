@@ -8,18 +8,19 @@ import random
 import os
 import time
 import configparser
+from TFLib import TFLib as tfl
 
 class DAE:
     def __init__(self,batchsize=1):
         inifile = configparser.SafeConfigParser()
         inifile.read("settings.ini")
         self.BATCH=batchsize
-        self.size=int(inifile.get("settings","size"))
-        self.dim=3
+        self.Size=int(inifile.get("settings","Size"))
 
-        self.Layer=32
-        self.Filter=3
-        self.Loop=5
+        self.Layer=int(inifile.get("settings","Layer"))
+        self.Filter=int(inifile.get("settings","Filter"))
+        self.Stage=int(inifile.get("settings","Stage"))
+        self.Loop=int(inifile.get("settings","Loop"))
 
         self.directory_name='DAE/data/'
         self.dataBase='data_base/'
@@ -28,12 +29,7 @@ class DAE:
         self.modelDir='DAE/model/'
         self.modelname='DAE/model/DAE.ckpt'
 
-        config = tf.ConfigProto(
-            gpu_options=tf.GPUOptions(
-                visible_device_list="0", # specify GPU number
-                allow_growth=True
-            )
-        )
+        config = tfl().config
 
         self.graph=tf.Graph()
         self._buidModel()
@@ -90,7 +86,7 @@ class DAE:
         inputData = cv2.imread(path+'input/'+name,1)/255.0
         outputData=cv2.imread(path+'output/'+name,1)/255.0
         maskData=cv2.imread(path+'mask/'+name,0)/255.0
-        maskData=np.reshape(maskData,[-1,self.size,self.size,1])[0]
+        maskData=np.reshape(maskData,[-1,self.Size,self.Size,1])[0]
 
         inputData=np.append(inputData,maskData,2)
 
@@ -100,170 +96,66 @@ class DAE:
         items=len(real)
         if items>4:
             items=4
-        images=np.zeros([self.size*items,self.size*2,3])
+        images=np.zeros([self.Size*items,self.Size*2,3])
         for i in range(items):
-            images[self.size*i:self.size*(i+1),0:self.size,:]=real[i,:,:,0:3]
-            images[self.size*i:self.size*(i+1),self.size:self.size*2,:]=fake[i,:,:,0:3]
+            images[self.Size*i:self.Size*(i+1),0:self.Size,:]=real[i,:,:,0:3]
+            images[self.Size*i:self.Size*(i+1),self.Size:self.Size*2,:]=fake[i,:,:,0:3]
         cv2.imshow("real : fake",images)
         cv2.waitKey(1)
-
-    def _fc_variable(self,weight_shape,name="fc"):
-        with tf.variable_scope(name):
-            weight_shape=(int(weight_shape[0]),int(weight_shape[1]))
-            weight=tf.get_variable("w",weight_shape,initializer=tf.contrib.layers.xavier_initializer())
-            bias=tf.get_variable("b",[weight_shape[1]],initializer=tf.constant_initializer(0.1))
-        return weight,bias
-
-    def _conv_variable(self,weight_shape,name="conv"):
-        with tf.variable_scope(name):
-            weight_shape=(int(weight_shape[0]),int(weight_shape[1]),int(weight_shape[2]),int(weight_shape[3]))
-            weight = tf.get_variable("w",weight_shape,initializer=tf.contrib.layers.xavier_initializer_conv2d())
-            bias=tf.get_variable("b",[weight_shape[3]],initializer=tf.constant_initializer(0.1))
-        return weight,bias
-
-    def _deconv_variable(self,weight_shape,name="deconve"):
-        with tf.variable_scope(name):
-            weight_shape=(int(weight_shape[0]),int(weight_shape[1]),int(weight_shape[2]),int(weight_shape[3]))
-            weight = tf.get_variable("w",weight_shape,initializer=tf.contrib.layers.xavier_initializer_conv2d())
-            bias=tf.get_variable("b",[weight_shape[2]],initializer=tf.constant_initializer(0.1))
-        return weight,bias
-
-    def _conv2d(self,x,w,stride=1):
-        return tf.nn.conv2d(x,w,strides=[1,stride,stride,1],padding="SAME")
-
-    def _deconv2d(self,x,w,output_shape,stride=1):
-        output_shape=(int(output_shape[0]),int(output_shape[1]),int(output_shape[2]),int(output_shape[3]))
-        return tf.nn.conv2d_transpose(x,w,output_shape=output_shape,strides=[1,stride,stride,1],padding="SAME")
-
-    def _leakyReLU(self,x,alpha=0.1):
-        return tf.maximum(x*alpha,x)
-
-    def _maxpool(self,x):
-        return tf.nn.max_pool(x,ksize=[1,2,2,1],strides=[1,2,2,1],padding='SAME')
     
     def _buildGenerator(self,x,keep_prob,reuse):
         with tf.variable_scope("Generator") as scope:
             if reuse:
                 scope.reuse_variables()
-                isTraining=False
-            else:
-                isTraining=True
+
             h=x
 
-            #layer 1
-            w,b=self._conv_variable([self.Filter,self.Filter,4,self.Layer],"conv1-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-in-norm")
-            h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,4,4],"conv-in1")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv1-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-norm-{0}".format(i))
-                h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,4,8],"conv-in2")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv1-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-out-norm")
-            h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,8,self.Layer],"conv-in3")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            h=tf.nn.dropout(h,keep_prob)
+            for i in range(self.Stage):
 
-            #layer 2
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-in-norm")
-            h=self._leakyReLU(h)
+                for j in range(self.Loop):
+                    w,b=tfl().conv_variable([self.Filter,self.Filter,self.Layer*(2**i),self.Layer*(2**i)],"conv{0}-{1}".format(i,j))
+                    h=tfl().conv2d(h,w,1)+b
+                    h=tfl().leakyReLU(h)
 
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-norm-{0}".format(i))
-                h=self._leakyReLU(h)
+                w,b=tfl().conv_variable([self.Filter,self.Filter,self.Layer*(2**i),self.Layer*(2**(i+1))],"conv{0}-out".format(i))
+                h=tfl().conv2d(h,w,2)+b
+                h=tfl().leakyReLU(h)
+                h=tf.nn.dropout(h,keep_prob)
+                
+            for i in reversed(range(self.Stage)):
 
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-out-norm")
-            h=self._leakyReLU(h)
+                for j in range(self.Loop):
+                    w,b=tfl().conv_variable([self.Filter,self.Filter,self.Layer*(2**(i+1)),self.Layer*(2**(i+1))],"deconv{0}-{1}".format(i,j))
+                    h=tfl().conv2d(h,w,1)+b
+                    h=tfl().leakyReLU(h)
 
-            h=tf.nn.dropout(h,keep_prob)
+                w,b=tfl().deconv_variable([self.Filter,self.Filter,self.Layer*(2**(i)),self.Layer*(2**(i+1))],"deconv{0}-out".format(i))
+                h=tfl().deconv2d(h,w,[self.BATCH,self.Size/(2**i),self.Size/(2**i),self.Layer*(2**i)],2)+b
+                h=tfl().leakyReLU(h)
+                h=tf.nn.dropout(h,keep_prob)
 
-            #layer 3
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-in-norm")
-            h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,self.Layer,8],"deconv-out1")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-norm-{0}".format(i))
-                h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,8,4],"deconv-out2")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-out-norm")
-            h=self._leakyReLU(h)
-
-            h=tf.nn.dropout(h,keep_prob)
-
-
-            #layer 4
-            w,b=self._deconv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv1-in")
-            h=self._deconv2d(h,w,[self.BATCH,self.size/(2**2),self.size/(2**2),self.Layer],2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv1-in-norm")
-            h=self._leakyReLU(h)
-
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv1-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv1-norm-{0}".format(i))
-                h=self._leakyReLU(h)
-
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv1-out")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv1-out-norm")
-            h=self._leakyReLU(h)
-
-            h=tf.nn.dropout(h,keep_prob)
-
-            #layer 5
-            w,b=self._deconv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv2-in")
-            h=self._deconv2d(h,w,[self.BATCH,self.size/(2**1),self.size/(2**1),self.Layer],2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv2-in-norm")
-            h=self._leakyReLU(h)
-
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv2-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv2-norm-{0}".format(i))
-                h=self._leakyReLU(h)
-
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv2-out")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv2-out-norm")
-            h=self._leakyReLU(h)
-
-            h=tf.nn.dropout(h,keep_prob)
-
-            #layer 6
-            w,b=self._deconv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv3-in")
-            h=self._deconv2d(h,w,[self.BATCH,self.size/(2**0),self.size/(2**0),self.Layer],2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv3-in-norm")
-            h=self._leakyReLU(h)
-
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"deconv3-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="deconv3-norm-{0}".format(i))
-                h=self._leakyReLU(h)
-
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,3],"deconv3-out")
-            h=self._conv2d(h,w,1)+b
-            h=self._leakyReLU(h)
-
-            w,b=self._conv_variable([1,1,3,3],"final")
-            h=self._conv2d(h,w,1)+b
+            w,b=tfl().conv_variable([self.Filter,self.Filter,4,3],"deconv-out3")
+            h=tfl().conv2d(h,w,1)+b
 
             y=h
 
@@ -273,68 +165,49 @@ class DAE:
         with tf.variable_scope("Discriminator") as scope:
             if reuse:
                 scope.reuse_variables()
-                isTraining=False
-            else:
-                isTraining=True
 
             h=x
 
 
-            #layer 1
-            w,b=self._conv_variable([self.Filter,self.Filter,3,self.Layer],"conv1-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-in-norm")
-            h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,3,4],"conv-in1")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv1-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-norm-{0}".format(i))
-                h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,4,8],"conv-in2")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv1-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv1-out-norm")
-            h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,8,self.Layer],"conv-in3")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            #layer 2
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-in-norm")
-            h=self._leakyReLU(h)
+            for i in range(self.Stage):
 
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-norm-{0}".format(i))
-                h=self._leakyReLU(h)
+                for j in range(self.Loop):
+                    w,b=tfl().conv_variable([self.Filter,self.Filter,self.Layer*(2**i),self.Layer*(2**i)],"conv{0}-{1}".format(i,j))
+                    h=tfl().conv2d(h,w,1)+b
+                    h=tfl().leakyReLU(h)
 
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv2-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv2-out-norm")
-            h=self._leakyReLU(h)
+                w,b=tfl().conv_variable([self.Filter,self.Filter,self.Layer*(2**i),self.Layer*(2**(i+1))],"conv{0}-out".format(i))
+                h=tfl().conv2d(h,w,2)+b
+                h=tfl().leakyReLU(h)
 
-            #layer 3
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-in")
-            h=self._conv2d(h,w,1)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-in-norm")
-            h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,self.Layer*(2**(self.Stage)),8],"conv-out1")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            for i in range(self.Loop):
-                w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-{0}".format(i))
-                h=self._conv2d(h,w,1)+b
-                h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-norm-{0}".format(i))
-                h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,8,4],"conv-out2")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
-            w,b=self._conv_variable([self.Filter,self.Filter,self.Layer,self.Layer],"conv3-out")
-            h=self._conv2d(h,w,2)+b
-            h=tf.contrib.layers.batch_norm(h, decay=0.9, updates_collections=None, epsilon=1e-5, scale=True, is_training=isTraining, scope="conv3-out-norm")
-            h=self._leakyReLU(h)
+            w,b=tfl().conv_variable([self.Filter,self.Filter,4,3],"conv-out3")
+            h=tfl().conv2d(h,w,1)+b
+            h=tfl().leakyReLU(h)
 
             #fc1
-            h=tf.reshape(h,[-1,int(self.size/(2**3)*self.size/(2**3))*self.Layer])
-            self.fc_w1,self.fc_b1=self._fc_variable([self.size/(2**3)*self.size/(2**3)*self.Layer,1],"fc1")
-            h=tf.matmul(h,self.fc_w1)+self.fc_b1
+            h=tf.reshape(h,[-1,int(self.Size/(2**self.Stage)*self.Size/(2**self.Stage))*3])
+            fc_w1,fc_b1=tfl().fc_variable([self.Size/(2**self.Stage)*self.Size/(2**self.Stage)*3,1],"fc1")
+            h=tf.matmul(h,fc_w1)+fc_b1
 
             y=(tf.nn.tanh(h)+1.0)/2.0
 
@@ -345,8 +218,8 @@ class DAE:
     def _buidModel(self):
         with self.graph.as_default():
             e=0.00000001
-            self.gx=tf.placeholder(tf.float32,[None,self.size,self.size,4],name="gx")
-            self.gy_=tf.placeholder(tf.float32,[None,self.size,self.size,3],name="gy_")
+            self.gx=tf.placeholder(tf.float32,[None,self.Size,self.Size,4],name="gx")
+            self.gy_=tf.placeholder(tf.float32,[None,self.Size,self.Size,3],name="gy_")
             self.learnRate=tf.placeholder(tf.float32)
             self.keep_prob=tf.placeholder(tf.float32)
 
