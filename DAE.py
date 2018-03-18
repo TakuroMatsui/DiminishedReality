@@ -3,7 +3,6 @@
 import numpy as np
 import cv2
 import tensorflow as tf
-import sys
 import random
 import os
 import time
@@ -15,8 +14,8 @@ class DAE:
         inifile = configparser.SafeConfigParser()
         inifile.read("settings.ini")
         self.BATCH=batchsize
-        self.Size=int(inifile.get("settings","Size"))
 
+        self.Size=int(inifile.get("settings","Size"))
         self.Layer=int(inifile.get("settings","Layer"))
         self.Filter=int(inifile.get("settings","Filter"))
         self.Stage=int(inifile.get("settings","Stage"))
@@ -327,7 +326,7 @@ class DAE:
                     notUpdate+=1
                     print("NOT Updated: "+str(notUpdate))
 
-            if notUpdate==10:
+            if notUpdate==5:
                 learnRate=learnRate*0.1
                 notUpdate=0
                 self.loadModel()
