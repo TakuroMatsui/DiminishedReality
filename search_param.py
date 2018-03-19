@@ -24,6 +24,7 @@ while 1:
     if score > dae.testScore:
         score=dae.testScore
         f=open("searchResult.ini","w")
+        f.write("[settings]\n")
         f.write("Size="+str(int(inifile.get("settings","Size")))+"\n")
         f.write("Layer="+str(dae.Layer)+"\n")
         f.write("Filter="+str(dae.Filter)+"\n")
