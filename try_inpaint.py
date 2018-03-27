@@ -5,6 +5,7 @@ import cv2
 
 
 dae=DAE.DAE(1)
+dae.initModel()
 dae.loadModel()
 
 files = os.listdir("inpainting/target/")

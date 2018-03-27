@@ -15,6 +15,7 @@ while 1:
             break
     dae.Stage=random.randint(0,2)
     dae.Loop=random.randint(0,5)
+    dae.initModel()
     print(dae.Layer)
     print(dae.Filter)
     print(dae.Stage)

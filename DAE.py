@@ -28,17 +28,8 @@ class DAE:
         self.modelDir='DAE/model/'
         self.modelname='DAE/model/DAE.ckpt'
 
-        config = tfl().config
-
+        self.config = tfl().config
         self.graph=tf.Graph()
-        self._buidModel()
-        self.sess=tf.InteractiveSession(graph=self.graph,config=config)
-        self.saver = tf.train.Saver()
-        self.testScore=100000.0
-
-        initOP = tf.global_variables_initializer()
-        self.sess.run(initOP)
-
 
     def loadModel(self):
         self.saver.restore(self.sess, self.modelname)
@@ -214,7 +205,7 @@ class DAE:
             
 
 
-    def _buidModel(self):
+    def initModel(self):
         with self.graph.as_default():
             e=0.00000001
             self.gx=tf.placeholder(tf.float32,[None,self.Size,self.Size,4],name="gx")
@@ -240,6 +231,13 @@ class DAE:
 
             self.g_optimizer = tf.train.AdamOptimizer(self.learnRate).minimize(self.g_loss,var_list=[x for x in tf.trainable_variables() if "Generator" in x.name])
             self.d_optimizer = tf.train.AdamOptimizer(self.learnRate/4.0).minimize(self.d_loss,var_list=[x for x in tf.trainable_variables() if "Discriminator" in x.name])
+
+            self.sess=tf.InteractiveSession(graph=self.graph,config=self.config)
+            self.saver = tf.train.Saver()
+            self.testScore=100000.0
+
+            initOP = tf.global_variables_initializer()
+            self.sess.run(initOP)
             
     def train(self,learnRate,keep_prob,TIMES):
         print("train start")
