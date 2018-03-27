@@ -7,7 +7,7 @@ inifile = configparser.SafeConfigParser()
 inifile.read("settings.ini")
 
 while 1:
-    dae=DAE.DAE(10)
+    dae=DAE.DAE(32)
     dae.Layer=random.randint(8,16)
     while 1:
         dae.Filter=random.randint(3,5)
@@ -20,7 +20,7 @@ while 1:
     print(dae.Filter)
     print(dae.Stage)
     print(dae.Loop)
-    dae.train(0.0001,0.5,30000)
+    dae.train(0.0001,0.5,100000)
     dae.close()
     if score > dae.testScore:
         score=dae.testScore
